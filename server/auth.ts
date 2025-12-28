@@ -38,8 +38,8 @@ export function setupAuth(app: Express) {
     // Passport Setup
     passport.use(
         new LocalStrategy(async (username, _password, done) => {
-            // For this MVP, we treat 'username' as the only credential needed for the 'Simulated' Replit auth
-            // Real Replit Auth would use headers, but we want a login form for "Professional" feel locally
+            // For this MVP, we treat 'username' as the only credential needed.
+            // In a real app, this would use proper password hashing or OAuth.
             try {
                 let user = await storage.getUserByUsername(username);
                 if (!user) {

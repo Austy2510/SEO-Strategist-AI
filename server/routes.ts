@@ -3,8 +3,6 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
-import { registerChatRoutes } from "./replit_integrations/chat";
-import { registerImageRoutes } from "./replit_integrations/image";
 import { analyzeUrl, clusterKeywords, generateContentBrief } from "./seo";
 import { setupAuth } from "./auth";
 
@@ -21,10 +19,6 @@ export async function registerRoutes(
 ): Promise<Server> {
   // Setup Auth
   setupAuth(app);
-
-  // Register integration routes
-  registerChatRoutes(app);
-  registerImageRoutes(app);
 
   app.post("/api/keywords/cluster", isAuthenticated, async (req, res) => {
     try {

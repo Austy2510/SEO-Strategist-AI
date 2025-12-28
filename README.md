@@ -1,6 +1,6 @@
 # SEO Strategist AI
 
-A professional-grade SEO audit and strategy platform powered by Replit Agent and Google Gemini.
+A professional-grade SEO audit and strategy platform powered by Google Gemini.
 
 ## Features
 

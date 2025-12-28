@@ -55,7 +55,7 @@ export default function LoginPage() {
                             className="w-full bg-indigo-600 hover:bg-indigo-500 text-white"
                             disabled={loginMutation.isPending}
                         >
-                            {loginMutation.isPending ? "Logging in..." : "Continue with Replit ID"}
+                            {loginMutation.isPending ? "Logging in..." : "Continue"}
                         </Button>
                         <p className="text-xs text-center text-slate-500 mt-4">
                             For this demo, any username works. It will create a new account or log you in.
