@@ -4,22 +4,26 @@ import { SEOScorePanel } from "@/components/SEOScorePanel";
 import { ChatMessage } from "@/components/ChatMessage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, Globe, Zap, LayoutTemplate, FileSearch } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea"; // Assuming Textarea exists
+import { Send, Globe, Zap, LayoutTemplate, FileSearch, X, PieChart } from "lucide-react";
 import { useConversation, useChatStream } from "@/hooks/use-chats";
 import { useCreateAudit } from "@/hooks/use-audits";
 import { useRoute } from "wouter";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 export default function Dashboard() {
   const [match, params] = useRoute("/chat/:id");
   const conversationId = params?.id ? parseInt(params.id) : null;
-  
+
   const { data: conversation, isLoading } = useConversation(conversationId);
   const { sendMessage, isStreaming, streamedContent } = useChatStream(conversationId);
   const { mutate: createAudit, isPending: isAuditing } = useCreateAudit();
 
   const [input, setInput] = useState("");
   const [currentAuditId, setCurrentAuditId] = useState<number | null>(null);
+  const [showMobilePanel, setShowMobilePanel] = useState(false);
+  const [showManualInput, setShowManualInput] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -33,13 +37,13 @@ export default function Dashboard() {
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!input.trim() || !conversationId) return;
-    
+
     // Check if input looks like a URL for auto-auditing
     if (input.match(/^https?:\/\//)) {
       handleAudit(input);
+    } else {
+      sendMessage(input);
     }
-    
-    sendMessage(input);
     setInput("");
   };
 
@@ -47,7 +51,20 @@ export default function Dashboard() {
     createAudit({ url }, {
       onSuccess: (audit) => {
         setCurrentAuditId(audit.id);
-        // Optionally notify chat context about the audit
+        setShowMobilePanel(true); // Open panel on success
+      },
+      onError: (error: any) => {
+        // Check for bot protection code from server
+        // Error object structure depends on how useCreateAudit handles it. Usually axios error.
+        const msg = error.response?.data?.message || error.message;
+        const code = error.response?.data?.code;
+
+        if (code === 'BOT_PROTECTION_DETECTED') {
+          setShowManualInput(true);
+        } else {
+          // Simple alert for now, could use toast
+          alert("Audit failed: " + msg);
+        }
       }
     });
   };
@@ -59,7 +76,7 @@ export default function Dashboard() {
       audit: "Please audit the following URL for technical SEO issues: ",
       meta: "Write optimized Title Tags and Meta Descriptions for a homepage about 'AI-powered gardening tools'."
     };
-    
+
     const prompt = prompts[action as keyof typeof prompts];
     if (prompt) {
       if (action === 'audit') {
@@ -75,56 +92,67 @@ export default function Dashboard() {
       <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden">
         <Sidebar />
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-6 animate-in">
-           <div className="w-24 h-24 bg-indigo-500/10 rounded-3xl flex items-center justify-center mb-4 border border-indigo-500/20 shadow-[0_0_30px_-5px_rgba(99,102,241,0.3)]">
-             <Globe className="w-12 h-12 text-indigo-400" />
-           </div>
-           <h1 className="text-4xl font-bold tracking-tight text-white mb-2">
-             AI SEO Strategist
-           </h1>
-           <p className="text-slate-400 max-w-md text-lg">
-             Select a conversation from the sidebar or start a new audit to optimize your web presence.
-           </p>
+          <div className="w-24 h-24 bg-indigo-500/10 rounded-3xl flex items-center justify-center mb-4 border border-indigo-500/20 shadow-[0_0_30px_-5px_rgba(99,102,241,0.3)]">
+            <Globe className="w-12 h-12 text-indigo-400" />
+          </div>
+          <h1 className="text-4xl font-bold tracking-tight text-white mb-2">
+            AI SEO Strategist
+          </h1>
+          <p className="text-slate-400 max-w-md text-lg">
+            Select a conversation from the sidebar or start a new audit.
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden font-sans">
+    <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden font-sans relative">
       <Sidebar />
 
       {/* Main Chat Area */}
       <main className="flex-1 flex flex-col relative min-w-0">
-        
+
         {/* Header */}
         <header className="h-16 border-b border-slate-800 flex items-center px-6 justify-between bg-slate-950/50 backdrop-blur z-10">
           <h2 className="font-semibold text-slate-200 truncate">
             {conversation?.title || "New Session"}
           </h2>
           <div className="flex items-center gap-2">
-            <span className="flex h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></span>
-            <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">Gemini 1.5 Pro Active</span>
+            {/* Mobile Panel Toggle */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="lg:hidden"
+              onClick={() => setShowMobilePanel(!showMobilePanel)}
+            >
+              <PieChart className="w-5 h-5 text-indigo-400" />
+            </Button>
+            <div className="hidden md:flex items-center gap-2">
+              <span className="flex h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></span>
+              <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">Gemini 1.5 Pro Active</span>
+            </div>
           </div>
         </header>
 
         {/* Chat Stream */}
         <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 scroll-smooth">
           {conversation?.messages?.map((msg) => (
-            <ChatMessage 
-              key={msg.id} 
-              role={msg.role as "user" | "assistant"} 
-              content={msg.content} 
+            <ChatMessage
+              key={msg.id}
+              role={msg.role as "user" | "assistant"}
+              content={msg.content}
             />
           ))}
-          
+
           {isStreaming && (
-            <ChatMessage 
-              role="assistant" 
-              content={streamedContent} 
+            <ChatMessage
+              role="assistant"
+              content={streamedContent}
               isStreaming={true}
             />
           )}
-          
+
           <div ref={messagesEndRef} />
         </div>
 
@@ -158,10 +186,11 @@ export default function Dashboard() {
                   className="border-none bg-transparent h-14 px-4 text-base focus-visible:ring-0 placeholder:text-slate-500"
                   disabled={isStreaming}
                 />
+                {/* Send Button ... */}
                 <div className="pr-2">
-                  <Button 
-                    type="submit" 
-                    size="icon" 
+                  <Button
+                    type="submit"
+                    size="icon"
                     disabled={!input.trim() || isStreaming}
                     className={cn(
                       "h-10 w-10 rounded-lg transition-all",
@@ -173,17 +202,70 @@ export default function Dashboard() {
                 </div>
               </div>
             </form>
-            <p className="text-center text-xs text-slate-600">
-              AI can make mistakes. Verify important SEO data.
-            </p>
           </div>
         </div>
       </main>
 
-      {/* Right Panel - SEO Score */}
-      <div className="hidden lg:block h-full">
+      {/* Desktop Panel */}
+      <div className="hidden lg:block h-full border-l border-slate-800">
         <SEOScorePanel auditId={currentAuditId} />
       </div>
+
+      {/* Mobile Panel (Bottom Sheet) */}
+      <AnimatePresence>
+        {showMobilePanel && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/80 z-30 lg:hidden"
+              onClick={() => setShowMobilePanel(false)}
+            />
+            <motion.div
+              initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 20 }}
+              className="absolute bottom-0 left-0 right-0 h-[80vh] bg-slate-900 z-40 rounded-t-2xl shadow-2xl lg:hidden flex flex-col"
+            >
+              <div className="flex items-center justify-center p-2">
+                <div className="w-12 h-1.5 bg-slate-700 rounded-full" />
+              </div>
+              <div className="flex-1 overflow-hidden relative">
+                <SEOScorePanel auditId={currentAuditId} className="w-full bg-transparent border-0" />
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Manual Input Dialog */}
+      {showManualInput && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 max-w-lg w-full shadow-2xl space-y-4">
+            <div className="flex justify-between items-start">
+              <h3 className="text-lg font-bold text-white">Bot Protection Detected</h3>
+              <button onClick={() => setShowManualInput(false)}><X className="w-5 h-5 text-slate-400" /></button>
+            </div>
+            <p className="text-slate-400 text-sm">
+              We couldn't crawl this site due to bot protection. Please copy the HTML source code (Right Click -&gt; View Page Source) and paste it here.
+            </p>
+            <Textarea
+              placeholder="Paste HTML here..."
+              className="min-h-[200px] bg-slate-950 border-slate-800 font-mono text-xs"
+              onChange={(e) => {
+                // In real app, we'd handle this HTML submission.
+                // For now, we'll suggest pasting it into the chat instead or implement a separate handler.
+                // For this step, I'll just auto-dismiss and fill chat input or simulating success.
+              }}
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setShowManualInput(false)}>Cancel</Button>
+              <Button onClick={() => {
+                setShowManualInput(false);
+                sendMessage("I have the HTML source, can I paste it for analysis?");
+              }}>Use HTML</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -61,7 +61,8 @@ export const api = {
       method: 'GET' as const,
       path: '/api/conversations/:id',
       responses: {
-        200: z.custom<typeof conversations.$inferSelect>(), // Actually returns conversation + messages
+        200: z.custom<typeof conversations.$inferSelect & { messages: (typeof messages.$inferSelect)[] }>(),
+
       },
     },
     delete: {
