@@ -118,7 +118,10 @@ export class MemStorage implements IStorage {
       createdAt: new Date(),
       isPro: user.isPro ?? false,
       scansToday: 0,
-      lastScanDate: new Date()
+      lastScanDate: new Date(),
+      email: user.email ?? null,
+      password: user.password ?? null,
+      name: user.name ?? null
     };
     this.users.push(newUser);
     return newUser;

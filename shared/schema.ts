@@ -6,7 +6,10 @@ import { conversations, messages } from "./models/chat";
 // User Schema
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
+  username: text("username").notNull().unique(), // Keeping username for legacy/internal use, or can map to email
+  email: text("email").unique(),
+  password: text("password"),
+  name: text("name"),
   isPro: boolean("is_pro").default(false).notNull(),
   scansToday: integer("scans_today").default(0).notNull(),
   lastScanDate: timestamp("last_scan_date").defaultNow(),
