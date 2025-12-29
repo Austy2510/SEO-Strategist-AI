@@ -21,7 +21,7 @@ export default function LandingPage() {
                         <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-500 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
                             <Search className="w-5 h-5 text-white" />
                         </div>
-                        <span className="font-bold text-lg tracking-tight">SEO Strategist AI</span>
+                        <span className="font-bold text-lg tracking-tight">Kola SEO</span>
                     </div>
                     <div className="flex gap-4">
                         <Link href="/login">
@@ -82,7 +82,7 @@ export default function LandingPage() {
             {/* Footer */}
             <footer className="py-12 border-t border-slate-800 bg-slate-950">
                 <div className="max-w-6xl mx-auto px-6 text-center text-slate-500 text-sm">
-                    <p>&copy; {new Date().getFullYear()} SEO Strategist AI. Built with Google Gemini.</p>
+                    <p>&copy; {new Date().getFullYear()} Kola SEO. Built with Google Gemini.</p>
                 </div>
             </footer>
         </div>

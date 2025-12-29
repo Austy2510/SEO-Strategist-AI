@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { SEOScorePanel } from "@/components/SEOScorePanel";
 import { ChatMessage } from "@/components/ChatMessage";
+import { DashboardWidgets } from "@/components/DashboardWidgets";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea"; // Assuming Textarea exists
@@ -89,18 +90,24 @@ export default function Dashboard() {
 
   if (!conversationId && !isLoading) {
     return (
-      <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden">
+      <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden font-sans">
         <Sidebar />
-        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-6 animate-in">
-          <div className="w-24 h-24 bg-indigo-500/10 rounded-3xl flex items-center justify-center mb-4 border border-indigo-500/20 shadow-[0_0_30px_-5px_rgba(99,102,241,0.3)]">
-            <Globe className="w-12 h-12 text-indigo-400" />
-          </div>
-          <h1 className="text-4xl font-bold tracking-tight text-white mb-2">
-            AI SEO Strategist
-          </h1>
-          <p className="text-slate-400 max-w-md text-lg">
-            Select a conversation from the sidebar or start a new audit.
-          </p>
+        <div className="flex-1 overflow-y-auto bg-slate-950 p-4 md:p-8">
+          <header className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Command Center</h1>
+              <p className="text-slate-400">Welcome back! Here is your SEO performance at a glance.</p>
+            </div>
+            <div className="flex gap-3">
+              <Button variant="outline" className="border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800">
+                <FileSearch className="w-4 h-4 mr-2" /> New Audit
+              </Button>
+              <Button className="bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20">
+                <Zap className="w-4 h-4 mr-2" /> Quick Scan
+              </Button>
+            </div>
+          </header>
+          <DashboardWidgets />
         </div>
       </div>
     );

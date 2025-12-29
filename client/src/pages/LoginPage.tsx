@@ -28,7 +28,7 @@ export default function LoginPage() {
                 <div className="w-10 h-10 rounded-lg bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
                     <Search className="w-6 h-6 text-white" />
                 </div>
-                <span className="font-bold text-2xl tracking-tight text-white">SEO Strategist AI</span>
+                <span className="font-bold text-2xl tracking-tight text-white">Kola SEO</span>
             </div>
 
             <Card className="w-full max-w-md bg-slate-900 border-slate-800">

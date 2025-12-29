@@ -1,4 +1,4 @@
-# SEO Strategist AI
+# Kola SEO
 
 A professional-grade SEO audit and strategy platform powered by Google Gemini.
 
