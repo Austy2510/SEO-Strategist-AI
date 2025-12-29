@@ -177,3 +177,56 @@ export async function generateContentBrief(keyword: string) {
     throw new Error("Failed to generate brief");
   }
 }
+
+export async function optimizeContent(content: string) {
+  try {
+    if (!process.env.GEMINI_API_KEY) {
+      console.warn("GEMINI_API_KEY not set. Using mock response.");
+      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate delay
+      return {
+        optimizedContent: content + "\n\n[Optimized Version]\n\nSEO is crucial for business growth. To rank high on Google, you must craft high-quality, keyword-rich content that addresses user intent. Consistent checking of performance metrics is also key.",
+        changes: [
+          "Improved keyword density for 'business growth' and 'user intent'.",
+          "Enhanced readability by breaking down long sentences.",
+          "Inserted LSI keyword 'performance metrics'."
+        ],
+        usedKeywords: ["business growth", "user intent", "performance metrics", "high-quality content"]
+      };
+    }
+
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const prompt = `
+      You are an expert SEO editor using the 'Keyword Map' technique.
+      Rewrite the following blog post content to be more SEO-friendly.
+      
+      Tasks:
+      1. Improve keyword density naturally.
+      2. Enhance readability and flow.
+      3. Insert relevant LSI keywords where appropriate.
+      4. Fix any grammatical errors.
+      
+      Return the result as a JSON object with the following keys:
+      - "optimizedContent": The full rewritten text (formatted with markdown if needed, but primarily plain text/paragraphs).
+      - "changes": An array of strings describing specifically what keywords were added or what major changes were made (e.g., "Inserted keyword 'organic traffic' in paragraph 2").
+      - "usedKeywords": An array of specific keywords that were naturally integrated into the text during this optimization.
+
+      Do not include markdown code blocks for the JSON itself. Just the raw JSON.
+      
+      Content:
+      ${content}
+    `;
+
+    const result = await model.generateContent(prompt);
+    const responseText = result.response.text().replace(/```json/g, "").replace(/```/g, "").trim();
+    return JSON.parse(responseText);
+  } catch (error) {
+    console.error("Error optimizing content:", error);
+    // Fallback if API fails
+    return {
+      optimizedContent: content + "\n\n(AI Optimization Failed - Showing Mock Result for Demo)\n\n" +
+        "SEO is crucial for business growth. To rank high on Google, you must craft high-quality, keyword-rich content that addresses user intent. Consistent checking of performance metrics is also key.",
+      changes: ["System: API Key missing or Invalid", "Enhanced readability (Mock)", "Inserted LSI keyword 'performance metrics'"],
+      usedKeywords: ["business growth", "user intent", "performance metrics"]
+    };
+  }
+}

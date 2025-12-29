@@ -58,6 +58,20 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/keywords/optimize", isAuthenticated, async (req, res) => {
+    try {
+      const { content } = req.body;
+      if (!content) {
+        return res.status(400).json({ message: "Content is required" });
+      }
+      const optimization = await import("./seo").then(m => m.optimizeContent(content));
+      res.json(optimization);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Failed to optimize content" });
+    }
+  });
+
   // Audit routes
   app.post(api.audits.create.path, isAuthenticated, async (req, res) => {
     try {

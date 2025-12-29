@@ -2,13 +2,16 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Upload, FileText, Map, Download } from "lucide-react";
+import { Loader2, Upload, FileText, Map, Download, Wand2, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useMutation } from "@tanstack/react-query";
 import { Sidebar } from "@/components/Sidebar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 
 type KeywordData = {
   keyword: string;
@@ -16,20 +19,20 @@ type KeywordData = {
   difficulty: string;
   cluster: string;
   pillarPage: string;
+  volume?: number; // Added optional field
 };
 
-type ContentBrief = {
-  keyword: string;
-  h1: string;
-  titleTag: string;
-  outline: string[];
-  entities: string[];
+type OptimizationResult = {
+  optimizedContent: string;
+  changes: string[];
+  usedKeywords: string[];
 };
 
 export default function KeywordCluster() {
-  const [keywords, setKeywords] = useState("");
+  const [activeTab, setActiveTab] = useState("cluster");
+  const [inputContent, setInputContent] = useState("");
   const [results, setResults] = useState<KeywordData[]>([]);
-  const [selectedBrief, setSelectedBrief] = useState<ContentBrief | null>(null);
+  const [optimizationResult, setOptimizationResult] = useState<OptimizationResult | null>(null);
   const { toast } = useToast();
 
   const clusterMutation = useMutation({
@@ -46,23 +49,29 @@ export default function KeywordCluster() {
     },
   });
 
-  const briefMutation = useMutation({
-    mutationFn: async (keyword: string) => {
-      const res = await apiRequest("POST", "/api/keywords/brief", { keyword });
+  const optimizeMutation = useMutation({
+    mutationFn: async (content: string) => {
+      const res = await apiRequest("POST", "/api/keywords/optimize", { content });
       return await res.json();
     },
-    onSuccess: (data) => {
-      setSelectedBrief(data);
+    onSuccess: (data: OptimizationResult) => {
+      setOptimizationResult(data);
+      toast({ title: "Content optimized successfully" });
     },
     onError: () => {
-      toast({ title: "Failed to generate brief", variant: "destructive" });
+      toast({ title: "Failed to optimize content", variant: "destructive" });
     },
   });
 
-  const handleManualCluster = () => {
-    if (!keywords.trim()) return;
-    const keywordList = keywords.split("\n").filter((k) => k.trim());
-    clusterMutation.mutate(keywordList);
+  const handleAction = () => {
+    if (!inputContent.trim()) return;
+
+    if (activeTab === "cluster") {
+      const keywordList = inputContent.split(/[\n,]/).map((k) => k.trim()).filter((k) => k);
+      clusterMutation.mutate(keywordList);
+    } else {
+      optimizeMutation.mutate(inputContent);
+    }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -72,10 +81,13 @@ export default function KeywordCluster() {
     const reader = new FileReader();
     reader.onload = (event) => {
       const text = event.target?.result as string;
-      // Simple CSV parsing: assume one keyword per line or comma separated
-      const keywordList = text.split(/[\n,]/).map(k => k.trim()).filter(k => k);
-      setKeywords(keywordList.join("\n"));
-      toast({ title: "CSV loaded", description: `${keywordList.length} keywords found.` });
+      setInputContent(text);
+      if (activeTab === "cluster") {
+        const count = text.split(/[\n,]/).filter(x => x.trim()).length;
+        toast({ title: "CSV loaded", description: `${count} keywords found.` });
+      } else {
+        toast({ title: "File loaded", description: "Content ready for optimization." });
+      }
     };
     reader.readAsText(file);
   };
@@ -89,163 +101,151 @@ export default function KeywordCluster() {
             <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
               <Map className="w-4 h-4 text-indigo-400" />
             </div>
-            <h2 className="font-semibold text-slate-200">Keyword Clustering & Strategy</h2>
+            <h2 className="font-semibold text-slate-200">Keyword & Content Strategy</h2>
           </div>
         </header>
 
-        <div className="p-6 space-y-8 max-w-7xl mx-auto w-full">
-          {/* Input Section */}
-          <div className="grid md:grid-cols-2 gap-6">
-            <Card className="bg-slate-900 border-slate-800">
-              <CardHeader>
-                <CardTitle className="text-lg">Input Keywords</CardTitle>
-                <CardDescription>Enter keywords manually (one per line) or upload a CSV.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Textarea
-                  placeholder="seo strategy\ncontent marketing\nkeyword research"
-                  className="min-h-[200px] bg-slate-950 border-slate-800 font-mono text-sm"
-                  value={keywords}
-                  onChange={(e) => setKeywords(e.target.value)}
-                />
-                <div className="flex gap-4">
-                  <Button
-                    onClick={handleManualCluster}
-                    disabled={clusterMutation.isPending || !keywords.trim()}
-                    className="bg-indigo-600 hover:bg-indigo-500"
-                  >
-                    {clusterMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Map className="mr-2 h-4 w-4" />}
-                    Map Keywords
-                  </Button>
-                  <label>
-                    <input type="file" accept=".csv,.txt" className="hidden" onChange={handleFileUpload} />
-                    <Button variant="outline" asChild className="cursor-pointer border-slate-700 hover:bg-slate-800">
-                      <span>
-                        <Upload className="mr-2 h-4 w-4" /> Import CSV
-                      </span>
-                    </Button>
-                  </label>
-                </div>
-              </CardContent>
-            </Card>
+        <div className="p-6 space-y-8 max-w-7xl mx-auto w-full h-full pb-20">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="bg-slate-900 border border-slate-800 mb-6">
+              <TabsTrigger value="cluster">Keyword Clustering</TabsTrigger>
+              <TabsTrigger value="optimizer">Content Optimizer</TabsTrigger>
+            </TabsList>
 
-            {/* Brief View (Placeholder for now until generated) */}
-            {selectedBrief && (
-              <Card className="bg-slate-900 border-slate-800 animate-in fade-in slide-in-from-right-4">
+            {/* Shared Input Area */}
+            <div className="grid md:grid-cols-2 gap-6 h-[calc(100vh-250px)]">
+              <Card className="bg-slate-900 border-slate-800 flex flex-col">
                 <CardHeader>
-                  <CardTitle className="flex justify-between items-center">
-                    Content Brief: {selectedBrief.keyword}
-                    <Button variant="ghost" size="sm" onClick={() => setSelectedBrief(null)}><Loader2 className="h-4 w-4" /></Button>
+                  <CardTitle className="text-lg">
+                    {activeTab === "cluster" ? "Input Keywords" : "Input Blog Content"}
                   </CardTitle>
+                  <CardDescription>
+                    {activeTab === "cluster"
+                      ? "Enter keywords (one per line) or upload CSV."
+                      : "Paste your blog post content here to optimize it."}
+                  </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
-                  <div>
-                    <h4 className="text-sm font-semibold text-indigo-400">H1 Tag</h4>
-                    <p className="text-slate-300 bg-slate-950 p-2 rounded border border-slate-800 mt-1">{selectedBrief.h1}</p>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-semibold text-indigo-400">Title Tag</h4>
-                    <p className="text-slate-300 bg-slate-950 p-2 rounded border border-slate-800 mt-1">{selectedBrief.titleTag}</p>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-semibold text-indigo-400">Semantic Entities</h4>
-                    <div className="flex flex-wrap gap-2 mt-1">
-                      {selectedBrief.entities.map(e => <Badge key={e} variant="outline" className="border-slate-700">{e}</Badge>)}
-                    </div>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-semibold text-indigo-400">Outline</h4>
-                    <ul className="list-disc list-inside text-slate-300 space-y-1 mt-1">
-                      {selectedBrief.outline.map((o, i) => <li key={i}>{o}</li>)}
-                    </ul>
+                <CardContent className="flex-1 flex flex-col gap-4">
+                  <Textarea
+                    placeholder={activeTab === "cluster" ? "seo strategy\ncontent marketing" : "Paste your full blog post content here..."}
+                    className="flex-1 bg-slate-950 border-slate-800 font-mono text-sm resize-none"
+                    value={inputContent}
+                    onChange={(e) => setInputContent(e.target.value)}
+                  />
+                  <div className="flex gap-4">
+                    <Button
+                      onClick={handleAction}
+                      disabled={clusterMutation.isPending || optimizeMutation.isPending || !inputContent.trim()}
+                      className="bg-indigo-600 hover:bg-indigo-500 flex-1"
+                    >
+                      {clusterMutation.isPending || optimizeMutation.isPending ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        activeTab === "cluster" ? <Map className="mr-2 h-4 w-4" /> : <Wand2 className="mr-2 h-4 w-4" />
+                      )}
+                      {activeTab === "cluster" ? "Map Keywords" : "Optimize Content"}
+                    </Button>
+                    <label>
+                      <input type="file" accept=".csv,.txt,.md" className="hidden" onChange={handleFileUpload} />
+                      <Button variant="outline" asChild className="cursor-pointer border-slate-700 hover:bg-slate-800">
+                        <span><Upload className="h-4 w-4" /></span>
+                      </Button>
+                    </label>
                   </div>
                 </CardContent>
               </Card>
-            )}
 
-            {!selectedBrief && (
-              <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-slate-800 rounded-xl text-slate-500 text-center">
-                <FileText className="w-12 h-12 mb-4 opacity-20" />
-                <p>Select a keyword to generate a content brief</p>
-              </div>
-            )}
-          </div>
-
-          {/* Results Table */}
-          {results.length > 0 && (
-            <Card className="bg-slate-900 border-slate-800">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Topic Clusters</CardTitle>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const headers = ["Keyword", "Intent", "Difficulty", "Cluster", "Pillar Page"];
-                    const csvContent = [
-                      headers.join(","),
-                      ...results.map(r => [r.keyword, r.intent, r.difficulty, r.cluster, r.pillarPage].map(f => `"${f}"`).join(","))
-                    ].join("\n");
-
-                    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-                    const link = document.createElement("a");
-                    link.href = URL.createObjectURL(blob);
-                    link.download = "keyword_strategy.csv";
-                    link.click();
-                  }}
-                  className="border-slate-700 hover:bg-slate-800 gap-2"
-                >
-                  <Download className="w-4 h-4" /> Export CSV
-                </Button>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow className="border-slate-800 hover:bg-slate-900/50">
-                      <TableHead className="text-slate-400">Keyword</TableHead>
-                      <TableHead className="text-slate-400">Intent</TableHead>
-                      <TableHead className="text-slate-400">Difficulty</TableHead>
-                      <TableHead className="text-slate-400">Cluster / Pillar</TableHead>
-                      <TableHead className="text-right text-slate-400">Action</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {results.map((row, i) => (
-                      <TableRow key={i} className="border-slate-800 hover:bg-slate-800/50">
-                        <TableCell className="font-medium">{row.keyword}</TableCell>
-                        <TableCell>
-                          <Badge variant={
-                            row.intent === 'Informational' ? 'secondary' :
-                              row.intent === 'Navigational' ? 'outline' :
-                                row.intent === 'Commercial' ? 'default' : 'destructive'
-                          } className="capitalize">
-                            {row.intent}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{row.difficulty}</TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            <div className="font-semibold text-indigo-400">{row.cluster}</div>
-                            <div className="text-xs text-slate-500">{row.pillarPage}</div>
+              {/* Output Area */}
+              <Card className="bg-slate-900 border-slate-800 flex flex-col overflow-hidden">
+                <CardHeader>
+                  <CardTitle className="text-lg">
+                    {activeTab === "cluster" ? "Topic Clusters" : "Optimized Content"}
+                  </CardTitle>
+                  <CardDescription>
+                    {activeTab === "cluster" ? "AI-grouped semantic topics" : "AI-rewritten content with keyword injection"}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex-1 overflow-hidden p-0 relative">
+                  <ScrollArea className="h-full w-full">
+                    {activeTab === "cluster" ? (
+                      results.length > 0 ? (
+                        <Table>
+                          <TableHeader className="bg-slate-950/50 sticky top-0">
+                            <TableRow className="border-slate-800 hover:bg-transparent">
+                              <TableHead>Keyword</TableHead>
+                              <TableHead>Intent</TableHead>
+                              <TableHead>Cluster</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody className="p-4">
+                            {results.map((row, i) => (
+                              <TableRow key={i} className="border-slate-800 hover:bg-slate-800/50">
+                                <TableCell className="font-medium">{row.keyword}</TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className="capitalize text-xs">
+                                    {row.intent}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-indigo-400 text-sm">{row.cluster}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-full text-slate-500 p-8 text-center">
+                          <Map className="w-12 h-12 mb-4 opacity-20" />
+                          <p>Map keywords to see clusters here</p>
+                        </div>
+                      )
+                    ) : (
+                      optimizationResult ? (
+                        <div className="p-6 space-y-6">
+                          <div className="prose prose-invert prose-sm max-w-none">
+                            <div className="whitespace-pre-wrap font-sans text-slate-300 leading-relaxed">
+                              {optimizationResult.optimizedContent}
+                            </div>
                           </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="text-indigo-400 hover:text-indigo-300 hover:bg-indigo-900/20"
-                            onClick={() => briefMutation.mutate(row.keyword)}
-                            disabled={briefMutation.isPending && briefMutation.variables === row.keyword}
-                          >
-                            {briefMutation.isPending && briefMutation.variables === row.keyword ? <Loader2 className="h-4 w-4 animate-spin" /> : "Generate Brief"}
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          )}
+
+                          <Separator className="bg-slate-800" />
+
+                          <div className="space-y-4">
+                            <h4 className="text-sm font-semibold text-white flex items-center gap-2">
+                              <Wand2 className="w-4 h-4 text-emerald-400" />
+                              Modifications
+                            </h4>
+                            <div className="grid gap-2">
+                              {optimizationResult.changes.map((change, i) => (
+                                <div key={i} className="text-xs text-slate-400 flex gap-2 items-start bg-slate-950/50 p-2 rounded border border-slate-800/50">
+                                  <ArrowRight className="w-3 h-3 mt-0.5 text-indigo-500 shrink-0" />
+                                  {change}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-semibold text-white">Keywords Used</h4>
+                            <div className="flex flex-wrap gap-2">
+                              {optimizationResult.usedKeywords.map((kw, i) => (
+                                <Badge key={i} variant="secondary" className="bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 border-indigo-500/20">
+                                  {kw}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-full text-slate-500 p-8 text-center">
+                          <Wand2 className="w-12 h-12 mb-4 opacity-20" />
+                          <p>Optimized content will appear here</p>
+                        </div>
+                      )
+                    )}
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            </div>
+          </Tabs>
         </div>
       </main>
     </div>
