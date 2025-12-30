@@ -7,17 +7,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea"; // Assuming Textarea exists
 import { Send, Globe, Zap, LayoutTemplate, FileSearch, X, PieChart } from "lucide-react";
-import { useConversation, useChatStream } from "@/hooks/use-chats";
+import { useConversation, useChatStream, useCreateConversation } from "@/hooks/use-chats";
 import { useCreateAudit } from "@/hooks/use-audits";
-import { useRoute } from "wouter";
+import { useRoute, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 export default function Dashboard() {
   const [match, params] = useRoute("/chat/:id");
+  const [, setLocation] = useLocation();
   const conversationId = params?.id ? parseInt(params.id) : null;
 
   const { data: conversation, isLoading } = useConversation(conversationId);
+  const { mutate: createChat, isPending: isCreatingChat } = useCreateConversation();
   const { sendMessage, isStreaming, streamedContent } = useChatStream(conversationId);
   const { mutate: createAudit, isPending: isAuditing } = useCreateAudit();
 
@@ -34,6 +36,14 @@ export default function Dashboard() {
   useEffect(() => {
     scrollToBottom();
   }, [conversation?.messages, streamedContent]);
+
+  const handleNewAudit = () => {
+    createChat({ title: "New Audit Session" }, {
+      onSuccess: (chat) => {
+        setLocation(`/chat/${chat.id}`);
+      }
+    });
+  };
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -99,8 +109,14 @@ export default function Dashboard() {
               <p className="text-slate-400">Welcome back! Here is your SEO performance at a glance.</p>
             </div>
             <div className="flex gap-3">
-              <Button variant="outline" className="border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800">
-                <FileSearch className="w-4 h-4 mr-2" /> New Audit
+              <Button
+                onClick={handleNewAudit}
+                disabled={isCreatingChat}
+                variant="outline"
+                className="border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800"
+              >
+                <FileSearch className="w-4 h-4 mr-2" />
+                {isCreatingChat ? "Creating..." : "New Audit"}
               </Button>
               <Button className="bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20">
                 <Zap className="w-4 h-4 mr-2" /> Quick Scan
