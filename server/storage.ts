@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { audits, users, keywordClusters, type InsertAudit, type Audit, type InsertUser, type User, type InsertKeywordCluster, type KeywordCluster } from "@shared/schema";
+import { audits, users, keywordClusters, conversations, messages, type InsertAudit, type Audit, type InsertUser, type User, type InsertKeywordCluster, type KeywordCluster, type InsertConversation, type Conversation, type InsertMessage, type Message } from "@shared/schema";
 import { eq, desc, and, sql } from "drizzle-orm";
 
 export interface IStorage {
@@ -8,7 +8,7 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   incrementScanCount(userId: number): Promise<void>;
-  resetScanCounts(): Promise<void>; // To be run daily strictly speaking, but for now we might lazy check
+  resetScanCounts(): Promise<void>;
 
   // Audits
   getAudits(userId?: number): Promise<Audit[]>;
@@ -18,6 +18,14 @@ export interface IStorage {
   // Keywords
   getKeywordClusters(userId?: number): Promise<KeywordCluster[]>;
   createKeywordCluster(cluster: InsertKeywordCluster): Promise<KeywordCluster>;
+
+  // Chats
+  createConversation(conversation: InsertConversation): Promise<Conversation>;
+  getConversations(): Promise<Conversation[]>;
+  getConversation(id: number): Promise<Conversation | undefined>;
+  deleteConversation(id: number): Promise<void>;
+  createMessage(message: InsertMessage): Promise<Message>;
+  getMessages(conversationId: number): Promise<Message[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -46,7 +54,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async resetScanCounts(): Promise<void> {
-    // Implement if needed for production cron
+    // Implement if needed
   }
 
   async getAudits(userId?: number): Promise<Audit[]> {
@@ -80,23 +88,62 @@ export class DatabaseStorage implements IStorage {
     const [newCluster] = await db.insert(keywordClusters).values(cluster).returning();
     return newCluster;
   }
+
+  async createConversation(conversation: InsertConversation): Promise<Conversation> {
+    const [newChat] = await db.insert(conversations).values(conversation).returning();
+    return newChat;
+  }
+
+  async getConversations(): Promise<Conversation[]> {
+    return await db.select().from(conversations).orderBy(desc(conversations.createdAt));
+  }
+
+  async getConversation(id: number): Promise<Conversation | undefined> {
+    const [chat] = await db.select().from(conversations).where(eq(conversations.id, id));
+    return chat;
+  }
+
+  async deleteConversation(id: number): Promise<void> {
+    await db.delete(conversations).where(eq(conversations.id, id));
+  }
+
+  async createMessage(message: InsertMessage): Promise<Message> {
+    const [newMsg] = await db.insert(messages).values(message).returning();
+    return newMsg;
+  }
+
+  async getMessages(conversationId: number): Promise<Message[]> {
+    return await db.select().from(messages)
+      .where(eq(messages.conversationId, conversationId))
+      .orderBy(messages.createdAt);
+  }
 }
 
 export class MemStorage implements IStorage {
   private audits: Audit[];
   private users: User[];
   private keywordClusters: KeywordCluster[];
+  private conversations: Conversation[];
+  private messages: Message[];
+
   private currentId: number;
   private currentUserId: number;
   private currentClusterId: number;
+  private currentChatId: number;
+  private currentMsgId: number;
 
   constructor() {
     this.audits = [];
     this.users = [];
     this.keywordClusters = [];
+    this.conversations = [];
+    this.messages = [];
+
     this.currentId = 1;
     this.currentUserId = 1;
     this.currentClusterId = 1;
+    this.currentChatId = 1;
+    this.currentMsgId = 1;
 
     // Seed test user
     this.createUser({ username: "demo_user", isPro: false });
@@ -130,7 +177,6 @@ export class MemStorage implements IStorage {
   async incrementScanCount(userId: number): Promise<void> {
     const user = this.users.find(u => u.id === userId);
     if (user) {
-      // Check if day changed (simple check)
       const now = new Date();
       if (user.lastScanDate && user.lastScanDate.getDate() !== now.getDate()) {
         user.scansToday = 0;
@@ -169,7 +215,8 @@ export class MemStorage implements IStorage {
       images: audit.images ?? null,
       links: audit.links ?? null,
       loadTime: audit.loadTime ?? null,
-      performanceScore: audit.performanceScore ?? null
+      performanceScore: audit.performanceScore ?? null,
+      publicId: audit.publicId ?? null
     };
     this.audits.push(newAudit);
     return newAudit;
@@ -192,6 +239,47 @@ export class MemStorage implements IStorage {
     };
     this.keywordClusters.push(newCluster);
     return newCluster;
+  }
+
+  async createConversation(conversation: InsertConversation): Promise<Conversation> {
+    const id = this.currentChatId++;
+    const newChat: Conversation = {
+      ...conversation,
+      id,
+      createdAt: new Date()
+    };
+    this.conversations.push(newChat);
+    return newChat;
+  }
+
+  async getConversations(): Promise<Conversation[]> {
+    return [...this.conversations].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getConversation(id: number): Promise<Conversation | undefined> {
+    return this.conversations.find(c => c.id === id);
+  }
+
+  async deleteConversation(id: number): Promise<void> {
+    this.conversations = this.conversations.filter(c => c.id !== id);
+    this.messages = this.messages.filter(m => m.conversationId !== id);
+  }
+
+  async createMessage(message: InsertMessage): Promise<Message> {
+    const id = this.currentMsgId++;
+    const newMsg: Message = {
+      ...message,
+      id,
+      createdAt: new Date()
+    };
+    this.messages.push(newMsg);
+    return newMsg;
+  }
+
+  async getMessages(conversationId: number): Promise<Message[]> {
+    return this.messages
+      .filter(m => m.conversationId === conversationId)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   }
 }
 

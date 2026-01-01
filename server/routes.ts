@@ -136,5 +136,129 @@ export async function registerRoutes(
     // We could seed some dummy audits
   }
 
+  // Conversations
+  app.get(api.chats.list.path, isAuthenticated, async (req, res) => {
+    const chats = await storage.getConversations();
+    res.json(chats);
+  });
+
+  app.post(api.chats.create.path, isAuthenticated, async (req, res) => {
+    try {
+      const data = api.chats.create.input.parse(req.body);
+      const chat = await storage.createConversation({
+        title: data.title || "New Session"
+      });
+      res.status(201).json(chat);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input" });
+      }
+      res.status(500).json({ message: "Failed to create conversation" });
+    }
+  });
+
+  app.get(api.chats.get.path, isAuthenticated, async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+
+    const chat = await storage.getConversation(id);
+    if (!chat) return res.status(404).json({ message: "Conversation not found" });
+
+    const messages = await storage.getMessages(id);
+    res.json({ ...chat, messages });
+  });
+
+  app.delete(api.chats.delete.path, isAuthenticated, async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+    await storage.deleteConversation(id);
+    res.sendStatus(204);
+  });
+
+  // Chat Messages & Streaming
+  app.post(api.messages.create.path, isAuthenticated, async (req, res) => {
+    const start = Date.now();
+    const conversationId = parseInt(req.params.id);
+    if (isNaN(conversationId)) return res.status(400).json({ message: "Invalid ID" });
+
+    try {
+      const { content } = api.messages.create.input.parse(req.body);
+
+      // 1. Save User Message
+      await storage.createMessage({
+        conversationId,
+        role: "user",
+        content
+      });
+
+      // 2. Setup SSE
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+      });
+
+      const sendChunk = (data: any) => {
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+      };
+
+      // 3. Generate AI Response
+      let fullResponse = "";
+
+      try {
+        if (!process.env.GEMINI_API_KEY) {
+          // Mock Stream
+          const mockResponse = "I am a mock AI (API Key missing). I can help verify the UI functionality clearly.";
+          const chunks = mockResponse.split(" ");
+          for (const chunk of chunks) {
+            await new Promise(r => setTimeout(r, 100)); // Simulate typing
+            const text = chunk + " ";
+            fullResponse += text;
+            sendChunk({ content: text });
+          }
+        } else {
+          const { GoogleGenerativeAI } = await import("@google/generative-ai");
+          const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+          const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+          // Get context (previous messages)
+          const history = await storage.getMessages(conversationId);
+          // Convert to Gemini format if needed, or just send last prompt
+          // For simple MVP: just send the latest content
+
+          const result = await model.generateContentStream(content);
+          for await (const chunk of result.stream) {
+            const chunkText = chunk.text();
+            fullResponse += chunkText;
+            sendChunk({ content: chunkText });
+          }
+        }
+
+        // 4. Save Assistant Message
+        await storage.createMessage({
+          conversationId,
+          role: "assistant",
+          content: fullResponse
+        });
+
+        sendChunk({ done: true });
+        res.end();
+
+      } catch (aiError) {
+        console.error("AI Generation Error:", aiError);
+        sendChunk({ error: "Failed to generate response" });
+        res.end();
+      }
+
+    } catch (err) {
+      console.error("Message Error:", err);
+      if (!res.headersSent) {
+        res.status(500).json({ message: "Internal server error" });
+      } else {
+        res.end();
+      }
+    }
+  });
+
   return httpServer;
 }

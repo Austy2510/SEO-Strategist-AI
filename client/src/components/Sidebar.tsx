@@ -13,7 +13,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ className }: SidebarProps) {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const { data: conversations, isLoading } = useConversations();
   const { mutate: createChat, isPending } = useCreateConversation();
   const { user, logoutMutation } = useAuth();
@@ -22,7 +22,7 @@ export function Sidebar({ className }: SidebarProps) {
   const handleNewChat = () => {
     createChat({ title: "New Strategy Session" }, {
       onSuccess: (chat) => {
-        window.location.href = `/chat/${chat.id}`;
+        setLocation(`/chat/${chat.id}`);
       }
     });
   };
