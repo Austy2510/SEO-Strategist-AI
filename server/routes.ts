@@ -3,8 +3,9 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
-import { analyzeUrl, clusterKeywords, generateContentBrief } from "./seo";
+import { analyzeUrl, clusterKeywords, generateContentBrief, generateSeoSuggestions } from "./seo";
 import { setupAuth } from "./auth";
+import { suggestInputSchema } from "@shared/schema";
 
 function isAuthenticated(req: Request, res: Response, next: NextFunction) {
   if (req.isAuthenticated()) {
@@ -206,32 +207,21 @@ export async function registerRoutes(
       let fullResponse = "";
 
       try {
-        if (!process.env.GEMINI_API_KEY) {
-          // Mock Stream
-          const mockResponse = "I am a mock AI (API Key missing). I can help verify the UI functionality clearly.";
-          const chunks = mockResponse.split(" ");
-          for (const chunk of chunks) {
-            await new Promise(r => setTimeout(r, 100)); // Simulate typing
-            const text = chunk + " ";
-            fullResponse += text;
-            sendChunk({ content: text });
-          }
-        } else {
-          const { GoogleGenerativeAI } = await import("@google/generative-ai");
-          const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-          const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const { GoogleGenerativeAI } = await import("@google/generative-ai");
+        const API_KEY = process.env.GEMINI_API_KEY || "AIzaSyBFvpkHZswFcEEdzt8BB22Hl1EdoHEoqu8";
+        const genAI = new GoogleGenerativeAI(API_KEY);
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-          // Get context (previous messages)
-          const history = await storage.getMessages(conversationId);
-          // Convert to Gemini format if needed, or just send last prompt
-          // For simple MVP: just send the latest content
+        // Get context (previous messages)
+        const history = await storage.getMessages(conversationId);
+        // Convert to Gemini format if needed, or just send last prompt
+        // For simple MVP: just send the latest content
 
-          const result = await model.generateContentStream(content);
-          for await (const chunk of result.stream) {
-            const chunkText = chunk.text();
-            fullResponse += chunkText;
-            sendChunk({ content: chunkText });
-          }
+        const result = await model.generateContentStream(content);
+        for await (const chunk of result.stream) {
+          const chunkText = chunk.text();
+          fullResponse += chunkText;
+          sendChunk({ content: chunkText });
         }
 
         // 4. Save Assistant Message
@@ -246,7 +236,7 @@ export async function registerRoutes(
 
       } catch (aiError) {
         console.error("AI Generation Error:", aiError);
-        sendChunk({ error: "Failed to generate response" });
+        sendChunk({ error: "Failed to generate response: " + (aiError instanceof Error ? aiError.message : "Unknown Error") });
         res.end();
       }
 
@@ -257,6 +247,49 @@ export async function registerRoutes(
       } else {
         res.end();
       }
+    }
+  });
+
+  app.post("/api/seo/suggest", isAuthenticated, async (req, res) => {
+    try {
+      const input = suggestInputSchema.parse(req.body);
+      const suggestions = await generateSeoSuggestions(input);
+
+      // DATA PERSISTENCE: Save Research Results to Keyword Map
+      if (input.mode === "research" && req.user) {
+        const keywordsToSave = [
+          ...(suggestions.primaryKeyword ? [{
+            term: suggestions.primaryKeyword.term,
+            intent: input.intent,
+            difficulty: suggestions.primaryKeyword.difficulty
+          }] : []),
+          ...(suggestions.secondaryKeywords || []).map((k: any) => ({
+            term: k.term,
+            intent: k.intent,
+            difficulty: k.difficulty
+          }))
+        ];
+
+        // Save as a single cluster object
+        await storage.createKeywordCluster({
+          userId: req.user!.id,
+          name: input.keyword || "AI Research " + new Date().toISOString(),
+          data: {
+            source: "AI_STRATEGY",
+            keywords: keywordsToSave,
+            marketAnalysis: suggestions.marketAnalysis,
+            generatedAt: new Date().toISOString()
+          }
+        });
+      }
+
+      res.json(suggestions);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input", details: err.errors });
+      }
+      console.error(err);
+      res.status(500).json({ message: "Failed to generate suggestions" });
     }
   });
 

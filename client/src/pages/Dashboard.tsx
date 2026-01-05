@@ -12,6 +12,8 @@ import { useCreateAudit } from "@/hooks/use-audits";
 import { useRoute, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { AISeoSuggest } from "@/components/AISeoSuggest";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function Dashboard() {
   const [match, params] = useRoute("/chat/:id");
@@ -123,7 +125,19 @@ export default function Dashboard() {
               </Button>
             </div>
           </header>
-          <DashboardWidgets />
+
+          <Tabs defaultValue="overview" className="space-y-4">
+            <TabsList className="bg-slate-900 border-slate-800">
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="strategy">AI Strategy</TabsTrigger>
+            </TabsList>
+            <TabsContent value="overview" className="space-y-4">
+              <DashboardWidgets />
+            </TabsContent>
+            <TabsContent value="strategy" className="space-y-4">
+              <AISeoSuggest />
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     );
@@ -153,7 +167,7 @@ export default function Dashboard() {
             </Button>
             <div className="hidden md:flex items-center gap-2">
               <span className="flex h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></span>
-              <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">Gemini 1.5 Pro Active</span>
+              <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">Gemini 2.0 Flash Active</span>
             </div>
           </div>
         </header>

@@ -191,7 +191,8 @@ export function SEOScorePanel({ auditId, className }: SEOScorePanelProps) {
                 </div>
               </div>
 
-              {/* Metrics */}
+
+
               <div className="space-y-3">
                 <MetricItem
                   label="Title Tag"
@@ -290,7 +291,7 @@ export function SEOScorePanel({ auditId, className }: SEOScorePanelProps) {
           )}
         </AnimatePresence>
       </div>
-    </div>
+    </div >
   );
 }
 

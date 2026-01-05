@@ -57,7 +57,83 @@ export type InsertKeywordCluster = z.infer<typeof insertKeywordClusterSchema>;
 
 export type CreateAuditRequest = { url: string };
 
-export type CreateAuditRequest = { url: string };
+
+
+// AI SEO Suggest Schemas - V2
+export const seoModeSchema = z.enum(["research", "website", "content", "page"]);
+export const techStackSchema = z.enum(["wordpress", "php", "react", "laravel", "static", "other"]);
+export type SeoMode = z.infer<typeof seoModeSchema>;
+
+export const suggestInputSchema = z.object({
+  mode: seoModeSchema.default("research"),
+
+  // common / research
+  keyword: z.string().optional(), // optional because content mode might not need it initially
+  country: z.string().default("US"),
+  language: z.string().default("en"),
+  intent: z.enum(["Informational", "Navigational", "Commercial", "Transactional"]).default("Informational"),
+  businessType: z.enum(["Blog", "E-commerce", "SaaS", "Service", "News", "Local Business"]).default("Blog"),
+
+  // website mode
+  url: z.string().optional(),
+  techStack: techStackSchema.default("wordpress"),
+
+  // content mode
+  content: z.string().optional(),
+
+  // page mode
+  pageType: z.string().default("Landing Page"),
+});
+
+export const suggestOutputSchema = z.object({
+  // General Strategy
+  strategy: z.array(z.string()),
+
+  // Research Mode Data
+  marketAnalysis: z.string().optional(),
+  primaryKeyword: z.object({
+    term: z.string(),
+    volume: z.string(),
+    difficulty: z.string(),
+  }).optional(),
+  secondaryKeywords: z.array(z.object({
+    term: z.string(),
+    intent: z.string(),
+    difficulty: z.string(),
+  })).optional(),
+  longTailKeywords: z.array(z.string()).optional(),
+  competitorInsights: z.array(z.string()).optional(),
+  contentIdeas: z.array(z.object({
+    title: z.string(),
+    type: z.string(),
+    audience: z.string(),
+  })).optional(),
+
+  // Website/Technical Mode Data
+  technicalAudit: z.array(z.object({
+    issue: z.string(),
+    priority: z.string(), // High, Medium, Low
+    fix: z.string(),
+  })).optional(),
+
+  // Content Mode Data
+  contentAnalysis: z.object({
+    score: z.number(),
+    improvedTitle: z.string(),
+    metaDescription: z.string(),
+    contentGaps: z.array(z.string()),
+    lsiKeywords: z.array(z.string()),
+  }).optional(),
+
+  // Page Mode Data
+  onPageOptimizations: z.array(z.object({
+    element: z.string(), // H1, Title, Meta, etc.
+    suggestion: z.string(),
+  })).optional(),
+});
+
+export type SuggestInput = z.infer<typeof suggestInputSchema>;
+export type SuggestOutput = z.infer<typeof suggestOutputSchema>;
 
 // Export chat models
 export * from "./models/chat";

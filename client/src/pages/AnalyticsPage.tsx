@@ -6,7 +6,7 @@ import { BarChart3, Hash, FileText } from "lucide-react";
 export default function AnalyticsPage() {
     const { data: stats, isLoading } = useQuery({
         queryKey: ["/api/analytics"],
-    });
+    }) as { data: any, isLoading: boolean };
 
     return (
         <div className="flex h-screen bg-slate-950 text-slate-100 font-sans">

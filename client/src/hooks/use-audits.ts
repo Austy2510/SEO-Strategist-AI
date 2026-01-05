@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, buildUrl, type CreateAuditRequest, type Audit } from "@shared/routes";
+import { api, buildUrl, type Audit } from "@shared/routes";
 
 // GET /api/audits
 export function useAudits() {
@@ -14,7 +14,7 @@ export function useAudits() {
 }
 
 // GET /api/audits/:id
-export function useAudit(id: number | null) {
+export function useAudit(id: number | null | undefined) {
   return useQuery({
     queryKey: [api.audits.get.path, id],
     enabled: !!id,
@@ -29,6 +29,9 @@ export function useAudit(id: number | null) {
 }
 
 // POST /api/audits
+// Define local type since not exported from shared
+type CreateAuditRequest = { url: string };
+
 export function useCreateAudit() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -40,7 +43,7 @@ export function useCreateAudit() {
         body: JSON.stringify(validated),
         credentials: "include",
       });
-      
+
       if (!res.ok) {
         if (res.status === 400) {
           const error = api.audits.create.responses[400].parse(await res.json());

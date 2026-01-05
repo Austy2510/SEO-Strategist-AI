@@ -17,7 +17,7 @@ export function DashboardWidgets() {
 
     // Mock Active Audit Status
     const auditProgress = 67; // Simulated progress
-    const currentUrl = "https://example.com/blog/seo-tips";
+    const currentUrl = "Enter a URL to start audit";
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full max-w-7xl mx-auto p-4 animate-in fade-in zoom-in duration-500">
@@ -156,8 +156,8 @@ export function DashboardWidgets() {
                         <div className="space-y-4">
                             <div>
                                 <div className="flex justify-between text-sm mb-1">
-                                    <span className="text-slate-200 font-medium">ai seo tools</span>
-                                    <span className="text-emerald-400 font-bold">#3</span>
+                                    <span className="text-slate-200 font-medium italic opacity-50">No keywords tracked</span>
+                                    <span className="text-emerald-400 font-bold">-</span>
                                 </div>
                                 <div className="h-10 w-full">
                                     <ResponsiveContainer width="100%" height="100%">

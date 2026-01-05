@@ -30,21 +30,25 @@ export interface IStorage {
 
 export class DatabaseStorage implements IStorage {
   async getUser(id: number): Promise<User | undefined> {
+    if (!db) throw new Error("Database not initialized");
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
+    if (!db) throw new Error("Database not initialized");
     const [user] = await db.select().from(users).where(eq(users.username, username));
     return user;
   }
 
   async createUser(user: InsertUser): Promise<User> {
+    if (!db) throw new Error("Database not initialized");
     const [newUser] = await db.insert(users).values(user).returning();
     return newUser;
   }
 
   async incrementScanCount(userId: number): Promise<void> {
+    if (!db) throw new Error("Database not initialized");
     await db.update(users)
       .set({
         scansToday: sql`${users.scansToday} + 1`,
@@ -78,6 +82,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getKeywordClusters(userId?: number): Promise<KeywordCluster[]> {
+    if (!db) throw new Error("Database not initialized");
     if (userId) {
       return await db.select().from(keywordClusters).where(eq(keywordClusters.userId, userId)).orderBy(desc(keywordClusters.createdAt));
     }
@@ -85,34 +90,41 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createKeywordCluster(cluster: InsertKeywordCluster): Promise<KeywordCluster> {
+    if (!db) throw new Error("Database not initialized");
     const [newCluster] = await db.insert(keywordClusters).values(cluster).returning();
     return newCluster;
   }
 
   async createConversation(conversation: InsertConversation): Promise<Conversation> {
+    if (!db) throw new Error("Database not initialized");
     const [newChat] = await db.insert(conversations).values(conversation).returning();
     return newChat;
   }
 
   async getConversations(): Promise<Conversation[]> {
+    if (!db) throw new Error("Database not initialized");
     return await db.select().from(conversations).orderBy(desc(conversations.createdAt));
   }
 
   async getConversation(id: number): Promise<Conversation | undefined> {
+    if (!db) throw new Error("Database not initialized");
     const [chat] = await db.select().from(conversations).where(eq(conversations.id, id));
     return chat;
   }
 
   async deleteConversation(id: number): Promise<void> {
+    if (!db) throw new Error("Database not initialized");
     await db.delete(conversations).where(eq(conversations.id, id));
   }
 
   async createMessage(message: InsertMessage): Promise<Message> {
+    if (!db) throw new Error("Database not initialized");
     const [newMsg] = await db.insert(messages).values(message).returning();
     return newMsg;
   }
 
   async getMessages(conversationId: number): Promise<Message[]> {
+    if (!db) throw new Error("Database not initialized");
     return await db.select().from(messages)
       .where(eq(messages.conversationId, conversationId))
       .orderBy(messages.createdAt);

@@ -1,6 +1,7 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { type SuggestInput } from "@shared/schema";
 
 export async function analyzeUrl(url: string) {
   try {
@@ -128,7 +129,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 export async function clusterKeywords(keywords: string[]) {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
     const prompt = `
       You are an expert SEO strategist. 
       Analyze the following list of keywords and group them into semantic topic clusters.
@@ -156,7 +157,7 @@ export async function clusterKeywords(keywords: string[]) {
 
 export async function generateContentBrief(keyword: string) {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
     const prompt = `
       Create a detailed SEO content brief for the target keyword: "${keyword}".
       Return the result as a JSON object with the following keys:
@@ -180,21 +181,9 @@ export async function generateContentBrief(keyword: string) {
 
 export async function optimizeContent(content: string) {
   try {
-    if (!process.env.GEMINI_API_KEY) {
-      console.warn("GEMINI_API_KEY not set. Using mock response.");
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate delay
-      return {
-        optimizedContent: content + "\n\n[Optimized Version]\n\nSEO is crucial for business growth. To rank high on Google, you must craft high-quality, keyword-rich content that addresses user intent. Consistent checking of performance metrics is also key.",
-        changes: [
-          "Improved keyword density for 'business growth' and 'user intent'.",
-          "Enhanced readability by breaking down long sentences.",
-          "Inserted LSI keyword 'performance metrics'."
-        ],
-        usedKeywords: ["business growth", "user intent", "performance metrics", "high-quality content"]
-      };
-    }
+    const API_KEY = process.env.GEMINI_API_KEY || "AIzaSyBFvpkHZswFcEEdzt8BB22Hl1EdoHEoqu8";
+    const model = new GoogleGenerativeAI(API_KEY).getGenerativeModel({ model: "gemini-2.0-flash" });
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const prompt = `
       You are an expert SEO editor using the 'Keyword Map' technique.
       Rewrite the following blog post content to be more SEO-friendly.
@@ -221,12 +210,122 @@ export async function optimizeContent(content: string) {
     return JSON.parse(responseText);
   } catch (error) {
     console.error("Error optimizing content:", error);
-    // Fallback if API fails
-    return {
-      optimizedContent: content + "\n\n(AI Optimization Failed - Showing Mock Result for Demo)\n\n" +
-        "SEO is crucial for business growth. To rank high on Google, you must craft high-quality, keyword-rich content that addresses user intent. Consistent checking of performance metrics is also key.",
-      changes: ["System: API Key missing or Invalid", "Enhanced readability (Mock)", "Inserted LSI keyword 'performance metrics'"],
-      usedKeywords: ["business growth", "user intent", "performance metrics"]
-    };
+    // Explicitly fail if AI fails - NO MOCK
+    throw new Error("AI Optimization Failed: " + (error instanceof Error ? error.message : "Unknown Error"));
+  }
+}
+
+export async function generateSeoSuggestions(input: SuggestInput) {
+  try {
+
+
+    // Construct Prompt based on Mode
+    let systemPrompt = "";
+    let userPrompt = "";
+
+    switch (input.mode) {
+      case "research":
+        systemPrompt = `You are a Senior SEO Strategist acting as a high-end SaaS consultant. Use the user's business context to find high-value opportunities.`;
+        userPrompt = `
+          Analyze Keyword: "${input.keyword}"
+          Market: ${input.country} (${input.language})
+          Business Type: ${input.businessType}
+          Intent: ${input.intent}
+
+          Return JSON:
+          {
+            "strategy": ["3 bullet points on high-level strategy"],
+            "marketAnalysis": "Brief market overview (2 lines)",
+            "primaryKeyword": { "term": "${input.keyword}", "volume": "Est. Monthly Vol", "difficulty": "Low/Med/High" },
+            "secondaryKeywords": [{"term": "...", "intent": "...", "difficulty": "..."} (5 items)],
+            "longTailKeywords": ["..."] (5 items),
+            "contentIdeas": [{"title": "...", "type": "Blog/Landing", "audience": "..."} (3 items)],
+            "competitorInsights": ["Insight 1", "Insight 2"]
+          }
+        `;
+        break;
+
+      case "website":
+        systemPrompt = `You are a Technical SEO Architect specializing in ${input.techStack} environments. Provide specific, actionable technical advice.`;
+        userPrompt = `
+          Analyze Website: ${input.url || "General Architecture"}
+          Tech Stack: ${input.techStack}
+
+          Return JSON:
+          {
+            "strategy": ["3 technical priority actions"],
+            "technicalAudit": [
+              {"issue": "Potential Issue 1", "priority": "High", "fix": "Specific fix for ${input.techStack}"},
+              {"issue": "Potential Issue 2", "priority": "Medium", "fix": "Fix instructions"},
+              {"issue": "Potential Issue 3", "priority": "Low", "fix": "Fix instructions"}
+            ]
+          }
+        `;
+        break;
+
+      case "content":
+        systemPrompt = `You are an Expert SEO Editor. precision-edit content for rankings and CTR.`;
+        userPrompt = `
+          Analyze this content:
+          "${input.content?.substring(0, 1500) || ''}..."
+
+          Return JSON:
+          {
+            "strategy": ["3 editorial directives"],
+            "contentAnalysis": {
+              "score": 0-100,
+              "improvedTitle": "Click-worthy SEO Title",
+              "metaDescription": "Optimized Meta Description",
+              "contentGaps": ["Missing topic 1", "Missing topic 2"],
+              "lsiKeywords": ["LSI 1", "LSI 2", "LSI 3"]
+            }
+          }
+        `;
+        break;
+
+      case "page":
+        systemPrompt = `You are an On-Page SEO Specialist. Optimize specific page elements.`;
+        userPrompt = `
+          Optimize Page Type: ${input.pageType}
+          Target Keyword: ${input.keyword}
+
+          Return JSON:
+          {
+            "strategy": ["3 on-page priorities"],
+            "onPageOptimizations": [
+              {"element": "H1 Tag", "suggestion": "Optimization tip..."},
+              {"element": "URL Structure", "suggestion": "Optimization tip..."},
+              {"element": "Internal Linking", "suggestion": "Optimization tip..."},
+              {"element": "Schema Markup", "suggestion": "Optimization tip..."}
+            ]
+          }
+        `;
+        break;
+    }
+
+    const finalPrompt = `
+      ${systemPrompt}
+      
+      Task:
+      ${userPrompt}
+
+      Output: Strict JSON only. No markdown.
+    `;
+
+    // FORCE REAL API CALL - NO MOCKS ALLOWED
+    // Using user-provided key directly as fallback if env var fails
+    const API_KEY = process.env.GEMINI_API_KEY || "AIzaSyBFvpkHZswFcEEdzt8BB22Hl1EdoHEoqu8";
+    // Switched to gemini-2.0-flash as 1.5/pro are not available for this key
+    const model = new GoogleGenerativeAI(API_KEY).getGenerativeModel({ model: "gemini-2.0-flash" });
+
+    const result = await model.generateContent(finalPrompt);
+    const responseText = result.response.text().replace(/```json/g, "").replace(/```/g, "").trim();
+    return JSON.parse(responseText);
+
+  } catch (error) {
+    console.error("Error generating suggestions:", error);
+    // Return a structured error that the UI can show, rather than a generic throw
+    // identifying if it was a key issue or parsing issue could be helpful
+    throw new Error("AI Generation Failed: " + (error instanceof Error ? error.message : "Unknown Error"));
   }
 }
